@@ -1,0 +1,167 @@
+Why This Has Legs
+
+  - cmus — last updated years ago, arcane keybindings
+  - ncmpcpp — requires mpd daemon setup, steep learning curve
+  - spotify-tui — dead project, API-dependent
+
+  A standalone, zero-config TUI music player that just plays local files well — there's real demand
+  for this.
+
+  Architecture
+
+  ┌─────────────────────────────────────────────┐
+  │  TUI (ratatui)                              │
+  │  ┌──────────┬──────────────┬──────────────┐ │
+  │  │ Library  │  Now Playing │  Visualizer  │ │
+  │  │ Browser  │              │  ▁▃▅▇▅▃▁     │ │
+  │  │          │  Song Title  │              │ │
+  │  │ Artists  │  Artist      │  Spectrum    │ │
+  │  │ Albums   │  Album       │  analyzer    │ │
+  │  │ Songs    │              │              │ │
+  │  │          │  ◄◄ ▶ ►► 🔀  │              │ │
+  │  │          │  ━━━━●━━━━━  │              │ │
+  │  └──────────┴──────────────┴──────────────┘ │
+  │  Queue: song1 → song2 → song3 → ...         │
+  └─────────────────────────────────────────────┘
+           │                    ▲
+           ▼                    │
+  ┌─────────────────┐  ┌───────────────┐
+  │  Audio Engine   │  │  Library DB   │
+  │  symphonia      │  │  SQLite       │
+  │  + cpal output  │  │  metadata     │
+  └─────────────────┘  └───────────────┘
+
+  Build Phases
+
+  Phase 1 — Play a file (week 1)
+
+  - Decode audio with symphonia (MP3, FLAC, OGG, WAV, AAC)
+  - Output with cpal (cross-platform audio output)
+  - Basic playback: play, pause, stop, seek
+  - Minimal TUI: filename, progress bar, time elapsed/remaining
+
+  Phase 2 — Library scanner (week 2)
+
+  - Recursively scan music directories
+  - Read metadata tags with symphonia or lofty (title, artist, album, track number, year, genre,
+  duration)
+  - Store in SQLite (rusqlite)
+  - Browse by: artist → album → track hierarchy
+  - Background scanning with progress indicator
+
+  Phase 3 — Full TUI (week 3)
+
+  - Multi-panel layout: library browser | now playing | queue
+  - Fuzzy search across entire library (nucleo crate — same engine as helix editor)
+  - Vim-style navigation (j/k/g/G/ctrl-d/ctrl-u)
+  - Queue management: add, remove, reorder, clear
+  - Shuffle, repeat (off/one/all)
+
+  Phase 4 — Visualizer (week 4)
+
+  - FFT spectrum analyzer using rustfft
+  - Render with braille characters (⠁⠃⠇⡇⣇⣧⣷⣿) for high resolution in terminal
+  - Multiple modes: spectrum bars, waveform, oscilloscope
+  - Color gradients that react to intensity
+
+  Phase 5 — Playlists & persistence (week 5)
+
+  - Save/load playlists (M3U format for compatibility)
+  - Remember playback position on exit
+  - Remember last played song, queue state, volume
+  - Play history / most played tracking
+
+  Phase 6 — Polish & extras (week 6+)
+
+  - Gapless playback (pre-buffer next track)
+  - ReplayGain / volume normalization
+  - Album art display (sixel or kitty protocol for supported terminals)
+  - Global media key support (play/pause/next from keyboard)
+  - MPRIS integration on Linux (shows in system media controls)
+  - Scrobbling to Last.fm / ListenBrainz
+  - Lyrics display (fetch from lrclib or embedded tags)
+
+  Key Crates
+
+  ┌──────────────────┬─────────────────────┐
+  │     Purpose      │        Crate        │
+  ├──────────────────┼─────────────────────┤
+  │ Audio decoding   │ symphonia           │
+  ├──────────────────┼─────────────────────┤
+  │ Audio output     │ cpal                │
+  ├──────────────────┼─────────────────────┤
+  │ Metadata tags    │ lofty               │
+  ├──────────────────┼─────────────────────┤
+  │ TUI              │ ratatui + crossterm │
+  ├──────────────────┼─────────────────────┤
+  │ Database         │ rusqlite            │
+  ├──────────────────┼─────────────────────┤
+  │ Fuzzy search     │ nucleo              │
+  ├──────────────────┼─────────────────────┤
+  │ FFT (visualizer) │ rustfft             │
+  ├──────────────────┼─────────────────────┤
+  │ Async runtime    │ tokio               │
+  ├──────────────────┼─────────────────────┤
+  │ Config           │ toml + serde        │
+  ├──────────────────┼─────────────────────┤
+  │ Directories      │ dirs                │
+  └──────────────────┴─────────────────────┘
+
+  The Hard Parts
+
+  1. Gapless playback — you need to pre-decode the next track and crossfade at the sample level, not
+   just "play next when done"
+  2. Audio thread isolation — decoding and output must run on a dedicated thread, never blocked by
+  TUI rendering. Use channels (crossbeam) between TUI and audio engine
+  3. Spectrum visualizer — real-time FFT on audio samples, smoothing between frames, mapping
+  frequencies to bar heights that look good
+  4. Library scale — scanning 50k files fast, incremental re-scan (only check modified files),
+  responsive search over large collections
+  5. Seek accuracy — MP3 seeking is notoriously imprecise (VBR frames). symphonia handles this but
+  you need to understand the trade-offs
+
+  Thread Architecture
+
+  Main Thread (TUI)
+      │
+      ├──channel──► Audio Thread (decode + output via cpal)
+      │                 │
+      │                 ├── reads samples from decoder
+      │                 ├── feeds to cpal output stream
+      │                 └── sends FFT data back for visualizer
+      │
+      └──channel──► Scanner Thread (library indexing)
+
+  Config
+
+  # ~/.config/muse/config.toml
+  music_dirs = ["~/Music", "/Volumes/External/FLAC"]
+
+  [ui]
+  layout = "three-panel"  # or "minimal", "wide"
+  visualizer = "spectrum"  # or "waveform", "off"
+  theme = "catppuccin"
+
+  [playback]
+  gapless = true
+  replay_gain = "album"  # or "track", "off"
+  default_volume = 80
+
+  [keybindings]
+  play_pause = "space"
+  next = "n"
+  prev = "p"
+  seek_forward = "l"
+  seek_backward = "h"
+  volume_up = "+"
+  volume_down = "-"
+  search = "/"
+  queue_add = "a"
+
+  Name Ideas
+
+  - muse — short, musical, easy to type
+  - tune — simple
+  - harmoniq — distinctive
+  - sonor — from "sonorous"
+  - cadence

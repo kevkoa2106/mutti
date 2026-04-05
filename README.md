@@ -27,8 +27,14 @@ A terminal music player built with Rust.
 ## Building
 
 ```sh
+git clone --depth=1 https://github.com/kevkoa2106/mutti
 cargo build --release
 ```
+
+## Installation
+
+You can install it from the [releases](https://github.com/kevkoa2106/mutti/releases/tag/v0.1.0) page and unzip the tar file.
+If you can't find your platform, you can build it yourself.
 
 ## Usage
 

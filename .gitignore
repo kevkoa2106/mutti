@@ -1,4 +1,7 @@
 /target
 .claude
-photo.png
-test_song.mp3
+
+
+*.jpg
+*.png
+*.mp3

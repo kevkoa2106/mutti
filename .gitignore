@@ -5,5 +5,8 @@
 *.jpg
 *.png
 *.mp3
+Makefile
+
 
 /songs
+/build

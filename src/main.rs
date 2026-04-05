@@ -1,14 +1,15 @@
 use std::time::Duration;
 
 use crossterm::event::{self, Event, KeyCode, poll};
-use music_player::audio_player::AudioPlayer;
-use music_player::ui::{self, AppState, PlaybackInfo, RepeatMode};
+use mutti::audio_player::AudioPlayer;
+use mutti::ui::{self, AppState, Panel, PlaybackInfo, RepeatMode};
 
 fn main() {
     let mut player = AudioPlayer::new("test_song.mp3");
 
     let mut terminal = ratatui::init();
     let tick_rate = Duration::from_millis(16);
+    let mut focused_panel = Panel::NowPlaying;
 
     loop {
         let state = AppState {
@@ -27,6 +28,7 @@ fn main() {
             library_selected: 0,
             queue: vec![],
             spectrum: vec![],
+            focused_panel,
         };
 
         terminal.draw(|frame| ui::draw(frame, &state)).unwrap();
@@ -52,6 +54,8 @@ fn main() {
                     KeyCode::Char('-') => {
                         player.set_volume(player.volume.saturating_sub(5));
                     }
+                    KeyCode::Tab => focused_panel = focused_panel.next(),
+                    KeyCode::BackTab => focused_panel = focused_panel.prev(),
                     _ => {}
                 }
             }

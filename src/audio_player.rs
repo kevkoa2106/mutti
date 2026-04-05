@@ -1,4 +1,8 @@
+use lofty::file::TaggedFileExt;
+use lofty::probe::Probe;
+use lofty::tag::Accessor;
 use rodio::{Decoder, DeviceSinkBuilder, Player, Source};
+
 use std::io::Cursor;
 use std::time::{Duration, Instant};
 
@@ -37,6 +41,24 @@ impl AudioPlayer {
 
         player.append(source);
 
+        let tagged = Probe::open(file_path).unwrap().read().unwrap();
+        let tag = tagged.primary_tag().or(tagged.first_tag());
+
+        let artist = tag
+            .and_then(|t| t.artist().map(|s| s.to_string()))
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "Unknown".to_string());
+
+        let album = tag
+            .and_then(|t| t.album().map(|s| s.to_string()))
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "Unknown".to_string());
+
+        let title = tag
+            .and_then(|t| t.title().map(|s| s.to_string()))
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| file_path.to_string());
+
         Self {
             player,
             _sink: sink,
@@ -46,9 +68,9 @@ impl AudioPlayer {
             is_paused: false,
             volume: 100,
             total_duration,
-            title: file_path.to_string(),
-            artist: "Unknown".to_string(),
-            album: "Unknown".to_string(),
+            title,
+            artist,
+            album,
         }
     }
 

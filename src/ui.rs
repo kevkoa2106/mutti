@@ -34,12 +34,41 @@ pub struct QueueItem {
     pub duration: Duration,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Panel {
+    Library,
+    NowPlaying,
+    Visualizer,
+    Queue,
+}
+
+impl Panel {
+    pub fn next(self) -> Self {
+        match self {
+            Panel::Library => Panel::NowPlaying,
+            Panel::NowPlaying => Panel::Visualizer,
+            Panel::Visualizer => Panel::Queue,
+            Panel::Queue => Panel::Library,
+        }
+    }
+
+    pub fn prev(self) -> Self {
+        match self {
+            Panel::Library => Panel::Queue,
+            Panel::NowPlaying => Panel::Library,
+            Panel::Visualizer => Panel::NowPlaying,
+            Panel::Queue => Panel::Visualizer,
+        }
+    }
+}
+
 pub struct AppState {
     pub playback: Option<PlaybackInfo>,
     pub library: Vec<LibraryItem>,
     pub library_selected: usize,
     pub queue: Vec<QueueItem>,
     pub spectrum: Vec<u64>,
+    pub focused_panel: Panel,
 }
 
 pub fn draw(frame: &mut Frame, state: &AppState) {
@@ -56,14 +85,16 @@ pub fn draw(frame: &mut Frame, state: &AppState) {
     ])
     .split(outer[0]);
 
-    draw_library(frame, panels[0], state);
-    draw_now_playing(frame, panels[1], state);
-    draw_visualizer(frame, panels[2], state);
-    draw_queue(frame, outer[1], state);
+    draw_library(frame, panels[0], state.focused_panel == Panel::Library, state);
+    draw_now_playing(frame, panels[1], state.focused_panel == Panel::NowPlaying, state);
+    draw_visualizer(frame, panels[2], state.focused_panel == Panel::Visualizer, state);
+    draw_queue(frame, outer[1], state.focused_panel == Panel::Queue, state);
 }
 
-fn draw_library(frame: &mut Frame, area: Rect, state: &AppState) {
-    let block = Block::bordered().title(" Library ");
+fn draw_library(frame: &mut Frame, area: Rect, focused: bool, state: &AppState) {
+    let block = Block::bordered()
+        .title(" Library ")
+        .border_style(if focused { Style::default().fg(Color::Cyan) } else { Style::default() });
 
     let items: Vec<ListItem> = state
         .library
@@ -89,8 +120,10 @@ fn draw_library(frame: &mut Frame, area: Rect, state: &AppState) {
     frame.render_widget(list, area);
 }
 
-fn draw_now_playing(frame: &mut Frame, area: Rect, state: &AppState) {
-    let block = Block::bordered().title(" Now Playing ");
+fn draw_now_playing(frame: &mut Frame, area: Rect, focused: bool, state: &AppState) {
+    let block = Block::bordered()
+        .title(" Now Playing ")
+        .border_style(if focused { Style::default().fg(Color::Cyan) } else { Style::default() });
 
     let inner = block.inner(area);
     frame.render_widget(block, area);
@@ -173,8 +206,10 @@ fn draw_now_playing(frame: &mut Frame, area: Rect, state: &AppState) {
     frame.render_widget(time, sections[3]);
 }
 
-fn draw_visualizer(frame: &mut Frame, area: Rect, state: &AppState) {
-    let block = Block::bordered().title(" Visualizer ");
+fn draw_visualizer(frame: &mut Frame, area: Rect, focused: bool, state: &AppState) {
+    let block = Block::bordered()
+        .title(" Visualizer ")
+        .border_style(if focused { Style::default().fg(Color::Cyan) } else { Style::default() });
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
@@ -204,8 +239,10 @@ fn draw_visualizer(frame: &mut Frame, area: Rect, state: &AppState) {
     frame.render_widget(bar_chart, inner);
 }
 
-fn draw_queue(frame: &mut Frame, area: Rect, state: &AppState) {
-    let block = Block::bordered().title(" Queue ");
+fn draw_queue(frame: &mut Frame, area: Rect, focused: bool, state: &AppState) {
+    let block = Block::bordered()
+        .title(" Queue ")
+        .border_style(if focused { Style::default().fg(Color::Cyan) } else { Style::default() });
     let inner = block.inner(area);
     frame.render_widget(block, area);
 

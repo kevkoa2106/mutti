@@ -1,19 +1,26 @@
 use clap::{arg, command, value_parser};
+use std::path::PathBuf;
 
 pub struct Args {
-    pub audio_file: &'static str,
+    pub audio_file: String,
 }
 
-pub fn get_args() -> Args {
-    let matches = command!()
-        .arg(
-            arg!([file] "Optional specific file to play")
-                .required(false)
-                .value_parser(value_parser!(std::path::PathBuf)),
-        )
-        .get_matches();
+impl Args {
+    pub fn parse() -> Args {
+        let matches = command!()
+            .arg(
+                arg!([file] "File or directory to play")
+                    .required(true)
+                    .value_parser(value_parser!(PathBuf)),
+            )
+            .get_matches();
 
-    let file = matches.get_one::<&'static str>("file").unwrap();
+        let file = matches
+            .get_one::<PathBuf>("file")
+            .expect("file argument is required");
 
-    Args { audio_file: file }
+        Args {
+            audio_file: file.to_string_lossy().to_string(),
+        }
+    }
 }

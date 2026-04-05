@@ -30,8 +30,7 @@ pub struct LibraryItem {
 
 pub struct QueueItem {
     pub title: String,
-    pub artist: String,
-    pub duration: Duration,
+    pub is_current: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -262,10 +261,18 @@ fn draw_queue(frame: &mut Frame, area: Rect, focused: bool, state: &AppState) {
             if i > 0 {
                 spans.push(Span::styled(" → ", Style::default().fg(Color::DarkGray)));
             }
-            spans.push(Span::styled(
-                format!("{} ({})", item.title, format_duration(item.duration)),
-                Style::default().fg(Color::White),
-            ));
+            if item.is_current {
+                spans.push(Span::styled("▶ ", Style::default().fg(Color::Green)));
+                spans.push(Span::styled(
+                    item.title.as_str(),
+                    Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+                ));
+            } else {
+                spans.push(Span::styled(
+                    item.title.as_str(),
+                    Style::default().fg(Color::White),
+                ));
+            }
             spans
         })
         .collect();

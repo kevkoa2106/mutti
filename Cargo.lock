@@ -1528,6 +1528,7 @@ dependencies = [
  "rusqlite",
  "rustfft",
  "tokio",
+ "walkdir",
 ]
 
 [[package]]

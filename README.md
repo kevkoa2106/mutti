@@ -33,8 +33,17 @@ cargo build --release
 
 ## Installation
 
+### Prebuilt binaries
+
 You can install it from the [releases](https://github.com/kevkoa2106/mutti/releases/tag/v0.1.0) page and unzip the tar file.
-If you can't find your platform, you can build it yourself.
+
+### Homebrew
+
+```sh
+brew tap kevkoa2106/tap
+brew update
+brew install mutti
+```
 
 ## Usage
 

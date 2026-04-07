@@ -12,7 +12,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libasound2-dev pkg-config
+          sudo apt-get install -y libasound2-dev pkg-config libglib2.0-dev
 
       - name: Install chafa
         run: |
@@ -56,6 +56,7 @@ jobs:
         run: |
           Invoke-WebRequest -Uri "https://hpjansson.org/chafa/releases/static/chafa-1.18.1-1-x86_64-windows.zip" -OutFile chafa.zip
           Expand-Archive -Path chafa.zip -DestinationPath chafa
+          Get-ChildItem -Recurse chafa | Select-Object -ExpandProperty FullName
           $chafaDir = "$PWD\chafa\chafa-1.18.1-1-x86_64-windows"
           echo "$chafaDir\bin" >> $env:GITHUB_PATH
           echo "PKG_CONFIG_PATH=chafa/chafa-1.18.1-1-x86_64-windows/lib/pkgconfig" >> $env:GITHUB_ENV

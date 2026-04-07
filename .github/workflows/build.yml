@@ -16,17 +16,9 @@ jobs:
 
       - name: Install chafa
         run: |
-          curl -L -o chafa.tar.gz https://hpjansson.org/chafa/releases/static/chafa-1.18.1-1-x86_64-linux-gnu.tar.gz
-          mkdir -p chafa-extracted
-          tar xzf chafa.tar.gz -C chafa-extracted
-          ls -la chafa-extracted
-          CHAFA_DIR=$(find chafa-extracted -maxdepth 2 -name chafa -type f -path '*/bin/*' -exec dirname {} \; | xargs dirname)
-          echo "Found chafa at: $CHAFA_DIR"
-          sudo cp "$CHAFA_DIR/bin/chafa" /usr/local/bin/
-          sudo cp "$CHAFA_DIR/lib/pkgconfig/chafa.pc" /usr/local/lib/pkgconfig/
-          sudo cp -r "$CHAFA_DIR/include/"* /usr/local/include/
-          sudo cp "$CHAFA_DIR/lib/libchafa.a" /usr/local/lib/
-          echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
+          curl -L -o libchafa0.deb https://launchpad.net/ubuntu/+archive/primary/+files/libchafa0_1.18.1-1_amd64.deb
+          curl -L -o libchafa-dev.deb https://launchpad.net/ubuntu/+archive/primary/+files/libchafa-dev_1.18.1-1_amd64.deb
+          sudo apt-get install -y ./libchafa0.deb ./libchafa-dev.deb
           pkg-config --modversion chafa
 
       - name: Install Rust

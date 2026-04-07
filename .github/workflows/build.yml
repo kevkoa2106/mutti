@@ -12,9 +12,18 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libasound2-dev pkg-config libchafa-dev chafa
-          pkg-config --modversion chafa || true
-          find /usr -name 'chafa.pc' 2>/dev/null || true
+          sudo apt-get install -y libasound2-dev pkg-config
+
+      - name: Install chafa
+        run: |
+          curl -L -o chafa.tar.gz https://hpjansson.org/chafa/releases/static/chafa-1.18.1-1-x86_64-linux-gnu.tar.gz
+          tar xzf chafa.tar.gz
+          sudo cp chafa-1.18.1-1-x86_64-linux-gnu/bin/chafa /usr/local/bin/
+          sudo cp chafa-1.18.1-1-x86_64-linux-gnu/lib/pkgconfig/chafa.pc /usr/local/lib/pkgconfig/
+          sudo cp -r chafa-1.18.1-1-x86_64-linux-gnu/include/* /usr/local/include/
+          sudo cp chafa-1.18.1-1-x86_64-linux-gnu/lib/libchafa.a /usr/local/lib/
+          echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
+          pkg-config --modversion chafa
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -41,6 +50,15 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install chafa
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://hpjansson.org/chafa/releases/static/chafa-1.18.1-1-x86_64-windows.zip" -OutFile chafa.zip
+          Expand-Archive -Path chafa.zip -DestinationPath chafa
+          $chafaDir = "$PWD\chafa\chafa-1.18.1-1-x86_64-windows"
+          echo "$chafaDir\bin" >> $env:GITHUB_PATH
+          echo "PKG_CONFIG_PATH=$chafaDir\lib\pkgconfig" >> $env:GITHUB_ENV
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable

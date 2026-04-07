@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 pub struct Args {
     pub audio_file: String,
+    pub visualize: bool,
 }
 
 impl Args {
@@ -13,6 +14,9 @@ impl Args {
                     .required(true)
                     .value_parser(value_parser!(PathBuf)),
             )
+            .arg(
+                arg!(--visualize "Enable the audio visualizer")
+            )
             .get_matches();
 
         let file = matches
@@ -21,6 +25,7 @@ impl Args {
 
         Args {
             audio_file: file.to_string_lossy().to_string(),
+            visualize: matches.get_flag("visualize"),
         }
     }
 }

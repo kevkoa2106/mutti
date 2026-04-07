@@ -27,6 +27,7 @@ pub struct AudioPlayer {
     pub title: String,
     pub artist: String,
     pub album: String,
+    pub cover_art: Option<Vec<u8>>,
     pub playlist: Vec<PathBuf>,
     pub current_index: usize,
 }
@@ -54,7 +55,7 @@ fn scan_audio_files(path: &Path) -> Vec<PathBuf> {
     files
 }
 
-fn read_tags(path: &Path) -> (String, String, String) {
+fn read_tags(path: &Path) -> (String, String, String, Option<Vec<u8>>) {
     let tagged = Probe::open(path).and_then(|p| p.read());
     let tag = tagged
         .as_ref()
@@ -77,8 +78,10 @@ fn read_tags(path: &Path) -> (String, String, String) {
         .and_then(|t| t.album().map(|s| s.to_string()))
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| "Unknown".to_string());
+    let cover_art = tag
+        .and_then(|t| t.pictures().first().map(|p| p.data().to_vec()));
 
-    (title, artist, album)
+    (title, artist, album, cover_art)
 }
 
 impl AudioPlayer {
@@ -110,7 +113,7 @@ impl AudioPlayer {
         let total_duration = source.total_duration().unwrap_or_default();
         player.append(source);
 
-        let (title, artist, album) = read_tags(&playlist[0]);
+        let (title, artist, album, cover_art) = read_tags(&playlist[0]);
 
         Self {
             player,
@@ -124,6 +127,7 @@ impl AudioPlayer {
             title,
             artist,
             album,
+            cover_art,
             playlist,
             current_index: 0,
         }
@@ -137,10 +141,11 @@ impl AudioPlayer {
         let source = Self::make_decoder(&self.file_data);
         self.total_duration = source.total_duration().unwrap_or_default();
 
-        let (title, artist, album) = read_tags(path);
+        let (title, artist, album, cover_art) = read_tags(path);
         self.title = title;
         self.artist = artist;
         self.album = album;
+        self.cover_art = cover_art;
 
         self.player.skip_one();
         self.player.append(source);

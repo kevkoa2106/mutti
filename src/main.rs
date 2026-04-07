@@ -1,12 +1,16 @@
+use std::io::Cursor;
 use std::time::Duration;
 
 use crossterm::event::{self, Event, KeyCode, poll};
 use mutti::args::Args;
 use mutti::audio_player::AudioPlayer;
 use mutti::ui::{self, AppState, Panel, PlaybackInfo, QueueItem, RepeatMode};
+use ratatui_image::picker::Picker;
+use ratatui_image::protocol::StatefulProtocol;
 
 fn main() {
     let args = Args::parse();
+    let visualize = args.visualize;
 
     let mut player = AudioPlayer::new(&args.audio_file);
 
@@ -14,7 +18,16 @@ fn main() {
     let tick_rate = Duration::from_millis(16);
     let mut focused_panel = Panel::NowPlaying;
 
+    let picker = Picker::halfblocks();
+    let mut album_art: Option<StatefulProtocol> = make_album_art(&picker, &player.cover_art);
+    let mut last_track_index = player.current_index;
+
     loop {
+        // Refresh album art on track change
+        if player.current_index != last_track_index {
+            album_art = make_album_art(&picker, &player.cover_art);
+            last_track_index = player.current_index;
+        }
         let state = AppState {
             playback: Some(PlaybackInfo {
                 title: player.title.clone(),
@@ -40,9 +53,10 @@ fn main() {
                 .collect(),
             spectrum: vec![],
             focused_panel,
+            visualize,
         };
 
-        terminal.draw(|frame| ui::draw(frame, &state)).unwrap();
+        terminal.draw(|frame| ui::draw(frame, &state, &mut album_art)).unwrap();
 
         if player.check_advance() {
             break;
@@ -76,4 +90,14 @@ fn main() {
     }
 
     ratatui::restore();
+}
+
+fn make_album_art(picker: &Picker, cover_art: &Option<Vec<u8>>) -> Option<StatefulProtocol> {
+    let data = cover_art.as_ref()?;
+    let img = image::ImageReader::new(Cursor::new(data))
+        .with_guessed_format()
+        .ok()?
+        .decode()
+        .ok()?;
+    Some(picker.new_resize_protocol(img))
 }

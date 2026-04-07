@@ -2,6 +2,8 @@ use std::time::Duration;
 
 use ratatui::prelude::*;
 use ratatui::widgets::*;
+use ratatui_image::StatefulImage;
+use ratatui_image::protocol::StatefulProtocol;
 
 /// Current state of playback for the UI to render.
 pub struct PlaybackInfo {
@@ -37,7 +39,6 @@ pub struct QueueItem {
 pub enum Panel {
     Library,
     NowPlaying,
-    Visualizer,
     Queue,
 }
 
@@ -45,8 +46,7 @@ impl Panel {
     pub fn next(self) -> Self {
         match self {
             Panel::Library => Panel::NowPlaying,
-            Panel::NowPlaying => Panel::Visualizer,
-            Panel::Visualizer => Panel::Queue,
+            Panel::NowPlaying => Panel::Queue,
             Panel::Queue => Panel::Library,
         }
     }
@@ -55,8 +55,7 @@ impl Panel {
         match self {
             Panel::Library => Panel::Queue,
             Panel::NowPlaying => Panel::Library,
-            Panel::Visualizer => Panel::NowPlaying,
-            Panel::Queue => Panel::Visualizer,
+            Panel::Queue => Panel::NowPlaying,
         }
     }
 }
@@ -68,9 +67,10 @@ pub struct AppState {
     pub queue: Vec<QueueItem>,
     pub spectrum: Vec<u64>,
     pub focused_panel: Panel,
+    pub visualize: bool,
 }
 
-pub fn draw(frame: &mut Frame, state: &AppState) {
+pub fn draw(frame: &mut Frame, state: &AppState, album_art: &mut Option<StatefulProtocol>) {
     let outer = Layout::vertical([
         Constraint::Min(0),    // main panels
         Constraint::Length(3), // queue bar
@@ -78,15 +78,13 @@ pub fn draw(frame: &mut Frame, state: &AppState) {
     .split(frame.area());
 
     let panels = Layout::horizontal([
-        Constraint::Percentage(25), // library browser
-        Constraint::Percentage(40), // now playing
-        Constraint::Percentage(35), // visualizer
+        Constraint::Percentage(33), // library browser
+        Constraint::Percentage(67), // now playing
     ])
     .split(outer[0]);
 
     draw_library(frame, panels[0], state.focused_panel == Panel::Library, state);
-    draw_now_playing(frame, panels[1], state.focused_panel == Panel::NowPlaying, state);
-    draw_visualizer(frame, panels[2], state.focused_panel == Panel::Visualizer, state);
+    draw_now_playing(frame, panels[1], state.focused_panel == Panel::NowPlaying, state, album_art);
     draw_queue(frame, outer[1], state.focused_panel == Panel::Queue, state);
 }
 
@@ -119,7 +117,13 @@ fn draw_library(frame: &mut Frame, area: Rect, focused: bool, state: &AppState) 
     frame.render_widget(list, area);
 }
 
-fn draw_now_playing(frame: &mut Frame, area: Rect, focused: bool, state: &AppState) {
+fn draw_now_playing(
+    frame: &mut Frame,
+    area: Rect,
+    focused: bool,
+    state: &AppState,
+    album_art: &mut Option<StatefulProtocol>,
+) {
     let block = Block::bordered()
         .title(" Now Playing ")
         .border_style(if focused { Style::default().fg(Color::Cyan) } else { Style::default() });
@@ -135,13 +139,44 @@ fn draw_now_playing(frame: &mut Frame, area: Rect, focused: bool, state: &AppSta
         return;
     };
 
-    let sections = Layout::vertical([
-        Constraint::Min(0),    // track info
-        Constraint::Length(1), // controls
-        Constraint::Length(1), // progress bar
-        Constraint::Length(1), // time
-    ])
-    .split(inner);
+    let has_art = album_art.is_some();
+    let has_visualizer = state.visualize;
+
+    // Layout: art and/or visualizer get the flexible space, controls stay fixed at bottom
+    let sections = match (has_art, has_visualizer) {
+        (true, true) => Layout::vertical([
+            Constraint::Length(3),      // track info
+            Constraint::Percentage(50), // album art
+            Constraint::Min(0),         // visualizer
+            Constraint::Length(1),      // controls
+            Constraint::Length(1),      // progress bar
+            Constraint::Length(1),      // time
+        ]).split(inner),
+        (true, false) => Layout::vertical([
+            Constraint::Length(3),  // track info
+            Constraint::Min(0),    // album art
+            Constraint::Length(0), // visualizer (hidden)
+            Constraint::Length(1), // controls
+            Constraint::Length(1), // progress bar
+            Constraint::Length(1), // time
+        ]).split(inner),
+        (false, true) => Layout::vertical([
+            Constraint::Length(3),  // track info
+            Constraint::Length(0), // album art (hidden)
+            Constraint::Min(0),    // visualizer
+            Constraint::Length(1), // controls
+            Constraint::Length(1), // progress bar
+            Constraint::Length(1), // time
+        ]).split(inner),
+        (false, false) => Layout::vertical([
+            Constraint::Min(0),    // track info
+            Constraint::Length(0), // album art (hidden)
+            Constraint::Length(0), // visualizer (hidden)
+            Constraint::Length(1), // controls
+            Constraint::Length(1), // progress bar
+            Constraint::Length(1), // time
+        ]).split(inner),
+    };
 
     // Track info
     let info_lines = vec![
@@ -157,6 +192,28 @@ fn draw_now_playing(frame: &mut Frame, area: Rect, focused: bool, state: &AppSta
     ];
     let info = Paragraph::new(info_lines).alignment(Alignment::Center);
     frame.render_widget(info, sections[0]);
+
+    // Album art (centered horizontally)
+    if let Some(proto) = album_art.as_mut() {
+        let art_area = sections[1];
+        // Image is ~2:1 ratio in terminal cells (each cell is roughly twice as tall as wide),
+        // so a square image needs width ≈ 2 * height in columns.
+        let img_width = (art_area.height as u16 * 2).min(art_area.width);
+        let x_offset = (art_area.width.saturating_sub(img_width)) / 2;
+        let centered = Rect::new(
+            art_area.x + x_offset,
+            art_area.y,
+            img_width,
+            art_area.height,
+        );
+        let image_widget = StatefulImage::default();
+        frame.render_stateful_widget(image_widget, centered, proto);
+    }
+
+    // Visualizer (embedded, only when --visualize is active)
+    if state.visualize {
+        draw_visualizer(frame, sections[2], state);
+    }
 
     // Controls
     let play_icon = if pb.is_paused { "▶" } else { "▐▐" };
@@ -177,7 +234,7 @@ fn draw_now_playing(frame: &mut Frame, area: Rect, focused: bool, state: &AppSta
         Span::styled(vol, Style::default().fg(Color::DarkGray)),
     ]);
     let controls = Paragraph::new(controls).alignment(Alignment::Center);
-    frame.render_widget(controls, sections[1]);
+    frame.render_widget(controls, sections[3]);
 
     // Progress bar
     let progress = if pb.total.as_secs_f64() > 0.0 {
@@ -191,7 +248,7 @@ fn draw_now_playing(frame: &mut Frame, area: Rect, focused: bool, state: &AppSta
         .filled_symbol("━")
         .unfilled_symbol("─")
         .ratio(progress.clamp(0.0, 1.0));
-    frame.render_widget(gauge, sections[2]);
+    frame.render_widget(gauge, sections[4]);
 
     // Time
     let elapsed_str = format_duration(pb.elapsed);
@@ -202,21 +259,15 @@ fn draw_now_playing(frame: &mut Frame, area: Rect, focused: bool, state: &AppSta
         Span::styled(total_str, Style::default().fg(Color::DarkGray)),
     ]);
     let time = Paragraph::new(time_line).alignment(Alignment::Center);
-    frame.render_widget(time, sections[3]);
+    frame.render_widget(time, sections[5]);
 }
 
-fn draw_visualizer(frame: &mut Frame, area: Rect, focused: bool, state: &AppState) {
-    let block = Block::bordered()
-        .title(" Visualizer ")
-        .border_style(if focused { Style::default().fg(Color::Cyan) } else { Style::default() });
-    let inner = block.inner(area);
-    frame.render_widget(block, area);
-
+fn draw_visualizer(frame: &mut Frame, area: Rect, state: &AppState) {
     if state.spectrum.is_empty() {
         let msg = Paragraph::new("⠁⠃⠇⡇⣇⣧⣷⣿")
             .alignment(Alignment::Center)
             .style(Style::default().fg(Color::DarkGray));
-        frame.render_widget(msg, inner);
+        frame.render_widget(msg, area);
         return;
     }
 
@@ -235,7 +286,7 @@ fn draw_visualizer(frame: &mut Frame, area: Rect, focused: bool, state: &AppStat
         .value_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
         .max(max_val);
 
-    frame.render_widget(bar_chart, inner);
+    frame.render_widget(bar_chart, area);
 }
 
 fn draw_queue(frame: &mut Frame, area: Rect, focused: bool, state: &AppState) {

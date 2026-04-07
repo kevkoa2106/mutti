@@ -11,17 +11,13 @@ impl Args {
         let matches = command!()
             .arg(
                 arg!([file] "File or directory to play")
-                    .required(true)
+                    .required(false)
                     .value_parser(value_parser!(PathBuf)),
             )
-            .arg(
-                arg!(--visualize "Enable the audio visualizer")
-            )
+            .arg(arg!(--visualize "Enable the audio visualizer"))
             .get_matches();
 
-        let file = matches
-            .get_one::<PathBuf>("file")
-            .expect("file argument is required");
+        let file = matches.get_one::<PathBuf>("file").unwrap();
 
         Args {
             audio_file: file.to_string_lossy().to_string(),

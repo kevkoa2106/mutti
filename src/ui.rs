@@ -271,20 +271,21 @@ fn draw_visualizer(frame: &mut Frame, area: Rect, state: &AppState) {
         return;
     }
 
-    let max_val = *state.spectrum.iter().max().unwrap_or(&1);
     let data: Vec<(&str, u64)> = state
         .spectrum
         .iter()
         .map(|&v| ("", v))
         .collect();
 
+    // Fixed max so bars grow on hits and shrink between them, instead of
+    // re-normalizing every frame (which made quiet parts look as loud as drops).
     let bar_chart = BarChart::default()
         .data(&data)
         .bar_gap(0)
         .bar_width(1)
         .bar_style(Style::default().fg(Color::Cyan))
         .value_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
-        .max(max_val);
+        .max(200);
 
     frame.render_widget(bar_chart, area);
 }

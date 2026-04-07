@@ -5,6 +5,7 @@ use crossterm::event::{self, Event, KeyCode, poll};
 use mutti::args::Args;
 use mutti::audio_player::AudioPlayer;
 use mutti::ui::{self, AppState, Panel, PlaybackInfo, QueueItem, RepeatMode};
+use mutti::visualizer::Visualizer;
 use ratatui_image::picker::Picker;
 use ratatui_image::protocol::StatefulProtocol;
 
@@ -21,6 +22,9 @@ fn main() {
     let picker = Picker::halfblocks();
     let mut album_art: Option<StatefulProtocol> = make_album_art(&picker, &player.cover_art);
     let mut last_track_index = player.current_index;
+    let mut visualizer = Visualizer::new();
+    let term_width = terminal.size().map(|s| s.width).unwrap_or(80) as usize;
+    let mut smoothed: Vec<u64> = vec![0; term_width];
 
     loop {
         // Refresh album art on track change
@@ -51,7 +55,36 @@ fn main() {
                     is_current: i == player.current_index,
                 })
                 .collect(),
-            spectrum: vec![],
+            spectrum: if visualize {
+                let num_bars = smoothed.len().max(16);
+                let raw = {
+                    let buf = player.sample_buffer.lock().unwrap();
+                    if buf.sample_rate > 0 && !buf.samples.is_empty() {
+                        visualizer.compute(
+                            &buf.samples,
+                            buf.sample_rate,
+                            player.elapsed(),
+                            num_bars,
+                        )
+                    } else {
+                        vec![0; num_bars]
+                    }
+                };
+                if smoothed.len() != raw.len() {
+                    smoothed = vec![0; raw.len()];
+                }
+                for (s, r) in smoothed.iter_mut().zip(raw.iter()) {
+                    // Instant attack so beats snap up; slow decay so they fall visibly.
+                    if *r >= *s {
+                        *s = *r;
+                    } else {
+                        *s = (*s as f32 * 0.85) as u64;
+                    }
+                }
+                smoothed.clone()
+            } else {
+                vec![]
+            },
             focused_panel,
             visualize,
         };

@@ -6,7 +6,15 @@ use walkdir::WalkDir;
 
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+
+#[derive(Default)]
+pub struct SampleBuffer {
+    pub samples: Vec<f32>,
+    pub sample_rate: u32,
+    pub ready: bool,
+}
 
 pub struct TrackInfo {
     pub title: String,
@@ -30,6 +38,52 @@ pub struct AudioPlayer {
     pub cover_art: Option<Vec<u8>>,
     pub playlist: Vec<PathBuf>,
     pub current_index: usize,
+    pub sample_buffer: Arc<Mutex<SampleBuffer>>,
+}
+
+fn spawn_decode(data: Vec<u8>, buffer: Arc<Mutex<SampleBuffer>>) {
+    std::thread::spawn(move || {
+        let source = AudioPlayer::make_decoder(&data);
+        let channels = source.channels().get() as usize;
+        let sample_rate = source.sample_rate().get();
+
+        if let Ok(mut buf) = buffer.lock() {
+            buf.sample_rate = sample_rate;
+        }
+
+        // Stream samples in chunks so the visualizer can start reading
+        // almost immediately instead of waiting for full decode.
+        const FLUSH_FRAMES: usize = 8192;
+        let mut local: Vec<f32> = Vec::with_capacity(FLUSH_FRAMES);
+        let mut frame_acc = 0.0f32;
+        let mut chan_idx = 0usize;
+
+        for s in source {
+            if channels <= 1 {
+                local.push(s);
+            } else {
+                frame_acc += s;
+                chan_idx += 1;
+                if chan_idx == channels {
+                    local.push(frame_acc / channels as f32);
+                    frame_acc = 0.0;
+                    chan_idx = 0;
+                }
+            }
+
+            if local.len() >= FLUSH_FRAMES {
+                if let Ok(mut buf) = buffer.lock() {
+                    buf.samples.extend_from_slice(&local);
+                }
+                local.clear();
+            }
+        }
+
+        if let Ok(mut buf) = buffer.lock() {
+            buf.samples.extend_from_slice(&local);
+            buf.ready = true;
+        }
+    });
 }
 
 fn scan_audio_files(path: &Path) -> Vec<PathBuf> {
@@ -114,6 +168,8 @@ impl AudioPlayer {
         player.append(source);
 
         let (title, artist, album, cover_art) = read_tags(&playlist[0]);
+        let sample_buffer = Arc::new(Mutex::new(SampleBuffer::default()));
+        spawn_decode(file_data.clone(), sample_buffer.clone());
 
         Self {
             player,
@@ -130,6 +186,7 @@ impl AudioPlayer {
             cover_art,
             playlist,
             current_index: 0,
+            sample_buffer,
         }
     }
 
@@ -140,6 +197,13 @@ impl AudioPlayer {
         self.file_data = std::fs::read(path).unwrap();
         let source = Self::make_decoder(&self.file_data);
         self.total_duration = source.total_duration().unwrap_or_default();
+        // Reset and re-decode in background
+        if let Ok(mut buf) = self.sample_buffer.lock() {
+            buf.samples.clear();
+            buf.sample_rate = 0;
+            buf.ready = false;
+        }
+        spawn_decode(self.file_data.clone(), self.sample_buffer.clone());
 
         let (title, artist, album, cover_art) = read_tags(path);
         self.title = title;

@@ -16,8 +16,8 @@ jobs:
 
       - name: Install chafa
         run: |
-          curl -L -o libchafa0.deb https://launchpad.net/ubuntu/+archive/primary/+files/libchafa0_1.18.1-1_amd64.deb
-          curl -L -o libchafa-dev.deb https://launchpad.net/ubuntu/+archive/primary/+files/libchafa-dev_1.18.1-1_amd64.deb
+          curl -fL -o libchafa0.deb https://launchpad.net/ubuntu/+archive/primary/+files/libchafa0t64_1.18.1-1_amd64.deb
+          curl -fL -o libchafa-dev.deb https://launchpad.net/ubuntu/+archive/primary/+files/libchafa-dev_1.18.1-1_amd64.deb
           sudo apt-get install -y ./libchafa0.deb ./libchafa-dev.deb
           pkg-config --modversion chafa
 
@@ -58,7 +58,7 @@ jobs:
           Expand-Archive -Path chafa.zip -DestinationPath chafa
           $chafaDir = "$PWD\chafa\chafa-1.18.1-1-x86_64-windows"
           echo "$chafaDir\bin" >> $env:GITHUB_PATH
-          echo "PKG_CONFIG_PATH=$chafaDir\lib\pkgconfig" >> $env:GITHUB_ENV
+          echo "PKG_CONFIG_PATH=chafa/chafa-1.18.1-1-x86_64-windows/lib/pkgconfig" >> $env:GITHUB_ENV
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable

@@ -4,16 +4,26 @@ use std::time::Duration;
 use crossterm::event::{self, Event, KeyCode, poll};
 use mutti::args::Args;
 use mutti::audio_player::AudioPlayer;
-use mutti::ui::{self, AppState, Panel, PlaybackInfo, QueueItem, RepeatMode};
+use mutti::db;
+use mutti::ui::{self, AppState, LibraryItem, Panel, PlaybackInfo, QueueItem, RepeatMode};
 use mutti::visualizer::Visualizer;
 use ratatui_image::picker::Picker;
 use ratatui_image::protocol::StatefulProtocol;
+use rusqlite::Connection;
 
 fn main() {
+    let conn = Connection::open("mutti.db").expect("Can't create or open database");
+    db::init(&conn);
+
     let args = Args::parse();
     let visualize = args.visualize;
 
     let mut player = AudioPlayer::new(&args.audio_file);
+
+    // Add all discovered tracks to the database
+    db::insert_tracks(&conn, &player.playlist);
+
+    let library_tracks = db::query_tracks(&conn);
 
     let mut terminal = ratatui::init();
     let tick_rate = Duration::from_millis(16);
@@ -44,7 +54,14 @@ fn main() {
                 shuffle: false,
                 repeat: RepeatMode::Off,
             }),
-            library: vec![],
+            library: library_tracks
+                .iter()
+                .enumerate()
+                .map(|(i, track)| LibraryItem {
+                    name: format!("{} — {}", track.title, track.artist),
+                    is_selected: i == 0,
+                })
+                .collect(),
             library_selected: 0,
             queue: player
                 .playlist_titles()
@@ -89,7 +106,9 @@ fn main() {
             visualize,
         };
 
-        terminal.draw(|frame| ui::draw(frame, &state, &mut album_art)).unwrap();
+        terminal
+            .draw(|frame| ui::draw(frame, &state, &mut album_art))
+            .unwrap();
 
         if player.check_advance() {
             break;

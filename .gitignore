@@ -6,6 +6,7 @@
 *.png
 *.mp3
 Makefile
+mutti.db
 
 
 /songs

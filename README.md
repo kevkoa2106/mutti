@@ -45,6 +45,20 @@ brew update
 brew install mutti
 ```
 
+## Dependencies
+
+| Name | Purpose |
+|-----|--------|
+| ratatui | Display terminal UI |
+| ratatui-image | Display images in ratatui |
+| clap | Parse command-line arguments |
+| lofty | Get music files' metadata |
+| image | Decode images |
+| rusqlite | Read/write sqlite3 |
+| walkdir | Recursively get all files in directory |
+| rodio | Play/Decode music file |
+| rustfft | FFT algortithm for rust |
+
 ## Usage
 
 ```sh

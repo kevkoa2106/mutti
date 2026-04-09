@@ -4,51 +4,22 @@ on:
   workflow_dispatch:
 
 jobs:
-#  build-linux:
-#    runs-on: ubuntu-latest
-#    steps:
-#      - uses: actions/checkout@v4
-#
-#      - name: Install dependencies
-#        run: |
-#          sudo apt-get update
-#          sudo apt-get install -y libasound2-dev pkg-config libglib2.0-dev
-#
-#      - name: Install chafa
-#        run: |
-#          curl -fL -o libchafa0.deb https://launchpad.net/ubuntu/+archive/primary/+files/libchafa0t64_1.18.1-1_amd64.deb
-#          curl -fL -o libchafa-dev.deb https://launchpad.net/ubuntu/+archive/primary/+files/libchafa-dev_1.18.1-1_amd64.deb
-#          sudo apt-get install -y ./libchafa0.deb ./libchafa-dev.deb
-#          pkg-config --modversion chafa
-#
-#      - name: Install Rust
-#        uses: dtolnay/rust-toolchain@stable
-#
-#      - name: Cache cargo
-#        uses: actions/cache@v4
-#        with:
-#          path: |
-#            ~/.cargo/registry
-#            ~/.cargo/git
-#            target
-#          key: linux-cargo-${{ hashFiles('**/Cargo.lock') }}
-#
-#      - name: Build
-#        run: cargo build --release
-#
-#      - name: Upload binary
-#        uses: actions/upload-artifact@v4
-#        with:
-#          name: mutti-linux-x86_64
-#          path: target/release/mutti
-
-  build-macos-x86_64:
-    runs-on: macos-13
+  build-linux:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev pkg-config libglib2.0-dev
+
       - name: Install chafa
-        run: brew install chafa pkg-config
+        run: |
+          curl -fL -o libchafa0.deb https://launchpad.net/ubuntu/+archive/primary/+files/libchafa0t64_1.18.1-1_amd64.deb
+          curl -fL -o libchafa-dev.deb https://launchpad.net/ubuntu/+archive/primary/+files/libchafa-dev_1.18.1-1_amd64.deb
+          sudo apt-get install -y ./libchafa0.deb ./libchafa-dev.deb
+          pkg-config --modversion chafa
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -60,7 +31,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: macos-x86_64-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: linux-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Build
         run: cargo build --release
@@ -68,5 +39,5 @@ jobs:
       - name: Upload binary
         uses: actions/upload-artifact@v4
         with:
-          name: mutti-macos-x86_64
+          name: mutti-linux-x86_64
           path: target/release/mutti

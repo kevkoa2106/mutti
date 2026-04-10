@@ -1,0 +1,10 @@
+{
+    "editor.formatOnSave": true,
+    "C_Cpp.clang_format_path": "/opt/homebrew/opt/llvm/bin/clang-format",
+    "files.trimTrailingWhitespace": true,
+    "files.trimFinalNewlines": true,
+    "files.insertFinalNewline": true,
+    "[c]": {
+        "editor.defaultFormatter": "ms-vscode.cpptools"
+    }
+}

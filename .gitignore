@@ -1,6 +1,5 @@
 /target
 .claude
-.vscode
 
 
 *.jpg
@@ -8,8 +7,9 @@
 *.mp3
 Makefile
 mutti.db
-commit.c
-commit
+*commit*
+
 
 /songs
 /build
+/commit*

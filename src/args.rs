@@ -2,7 +2,7 @@ use clap::{arg, command, value_parser};
 use std::path::PathBuf;
 
 pub struct Args {
-    pub audio_file: String,
+    pub audio_file: Option<String>,
     pub visualize: bool,
 }
 
@@ -17,10 +17,12 @@ impl Args {
             .arg(arg!(--visualize "Enable the audio visualizer"))
             .get_matches();
 
-        let file = matches.get_one::<PathBuf>("file").unwrap();
+        let file = matches
+            .get_one::<PathBuf>("file")
+            .map(|f| f.to_string_lossy().to_string());
 
         Args {
-            audio_file: file.to_string_lossy().to_string(),
+            audio_file: file,
             visualize: matches.get_flag("visualize"),
         }
     }

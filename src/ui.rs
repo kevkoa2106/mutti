@@ -96,25 +96,32 @@ fn draw_library(frame: &mut Frame, area: Rect, focused: bool, state: &AppState) 
     let items: Vec<ListItem> = state
         .library
         .iter()
-        .map(|item| {
-            let style = if item.is_selected {
-                Style::default()
-                    .fg(Color::Black)
-                    .bg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD)
-            } else {
-                Style::default()
-            };
-            ListItem::new(item.name.as_str()).style(style)
-        })
+        .map(|item| ListItem::new(item.name.as_str()))
         .collect();
+
+    let highlight_style = if focused {
+        Style::default()
+            .fg(Color::Black)
+            .bg(Color::Cyan)
+            .add_modifier(Modifier::BOLD)
+    } else {
+        Style::default()
+            .fg(Color::Black)
+            .bg(Color::DarkGray)
+            .add_modifier(Modifier::BOLD)
+    };
 
     let list = List::new(items)
         .block(block)
-        .highlight_style(Style::default().fg(Color::Black).bg(Color::Cyan))
+        .highlight_style(highlight_style)
         .highlight_symbol("▶ ");
 
-    frame.render_widget(list, area);
+    let mut list_state = ListState::default();
+    if !state.library.is_empty() {
+        list_state.select(Some(state.library_selected));
+    }
+
+    frame.render_stateful_widget(list, area, &mut list_state);
 }
 
 fn draw_now_playing(

@@ -18,16 +18,25 @@ fn main() {
     let args = Args::parse();
     let visualize = args.visualize;
 
-    let mut player = AudioPlayer::new(&args.audio_file);
-
-    // Add all discovered tracks to the database
-    db::insert_tracks(&conn, &player.playlist);
+    let mut player = match &args.audio_file {
+        Some(path) => {
+            let p = AudioPlayer::new(path);
+            db::insert_tracks(&conn, &p.playlist);
+            p
+        }
+        None => AudioPlayer::empty(),
+    };
 
     let library_tracks = db::query_tracks(&conn);
+    let mut library_selected: usize = 0;
 
     let mut terminal = ratatui::init();
     let tick_rate = Duration::from_millis(16);
-    let mut focused_panel = Panel::NowPlaying;
+    let mut focused_panel = if args.audio_file.is_some() {
+        Panel::NowPlaying
+    } else {
+        Panel::Library
+    };
 
     let picker = Picker::halfblocks();
     let mut album_art: Option<StatefulProtocol> = make_album_art(&picker, &player.cover_art);
@@ -42,27 +51,34 @@ fn main() {
             album_art = make_album_art(&picker, &player.cover_art);
             last_track_index = player.current_index;
         }
+
+        let has_playback = !player.title.is_empty();
+
         let state = AppState {
-            playback: Some(PlaybackInfo {
-                title: player.title.clone(),
-                artist: player.artist.clone(),
-                album: player.album.clone(),
-                elapsed: player.elapsed(),
-                total: player.total_duration,
-                is_paused: player.is_paused,
-                volume: player.volume,
-                shuffle: false,
-                repeat: RepeatMode::Off,
-            }),
+            playback: if has_playback {
+                Some(PlaybackInfo {
+                    title: player.title.clone(),
+                    artist: player.artist.clone(),
+                    album: player.album.clone(),
+                    elapsed: player.elapsed(),
+                    total: player.total_duration,
+                    is_paused: player.is_paused,
+                    volume: player.volume,
+                    shuffle: false,
+                    repeat: RepeatMode::Off,
+                })
+            } else {
+                None
+            },
             library: library_tracks
                 .iter()
                 .enumerate()
                 .map(|(i, track)| LibraryItem {
                     name: format!("{} — {}", track.title, track.artist),
-                    is_selected: i == 0,
+                    is_selected: i == library_selected,
                 })
                 .collect(),
-            library_selected: 0,
+            library_selected,
             queue: player
                 .playlist_titles()
                 .into_iter()
@@ -72,7 +88,7 @@ fn main() {
                     is_current: i == player.current_index,
                 })
                 .collect(),
-            spectrum: if visualize {
+            spectrum: if visualize && has_playback {
                 let num_bars = smoothed.len().max(16);
                 let raw = {
                     let buf = player.sample_buffer.lock().unwrap();
@@ -91,7 +107,6 @@ fn main() {
                     smoothed = vec![0; raw.len()];
                 }
                 for (s, r) in smoothed.iter_mut().zip(raw.iter()) {
-                    // Instant attack so beats snap up; slow decay so they fall visibly.
                     if *r >= *s {
                         *s = *r;
                     } else {
@@ -110,7 +125,7 @@ fn main() {
             .draw(|frame| ui::draw(frame, &state, &mut album_art))
             .unwrap();
 
-        if player.check_advance() {
+        if has_playback && player.check_advance() {
             break;
         }
 
@@ -118,21 +133,43 @@ fn main() {
             if let Ok(Event::Key(key)) = event::read() {
                 match key.code {
                     KeyCode::Char('q') => break,
-                    KeyCode::Char(' ') => player.toggle_pause(),
-                    KeyCode::Char('+') | KeyCode::Char('=') => {
+                    KeyCode::Char(' ') if has_playback => player.toggle_pause(),
+                    KeyCode::Char('+') | KeyCode::Char('=') if has_playback => {
                         player.set_volume(player.volume.saturating_add(5).min(100));
                     }
-                    KeyCode::Left | KeyCode::Char('h') => {
+                    KeyCode::Left | KeyCode::Char('h') if has_playback => {
                         player.seek_backward(5);
                     }
-                    KeyCode::Right | KeyCode::Char('k') => {
+                    KeyCode::Right | KeyCode::Char('k') if has_playback => {
                         player.seek_forward(5);
                     }
-                    KeyCode::Char('-') => {
+                    KeyCode::Char('-') if has_playback => {
                         player.set_volume(player.volume.saturating_sub(5));
                     }
-                    KeyCode::Char('.') | KeyCode::Char('>') => player.next_track(),
-                    KeyCode::Char(',') | KeyCode::Char('<') => player.prev_track(),
+                    KeyCode::Char('.') | KeyCode::Char('>') if has_playback => {
+                        player.next_track();
+                    }
+                    KeyCode::Char(',') | KeyCode::Char('<') if has_playback => {
+                        player.prev_track();
+                    }
+                    KeyCode::Up if focused_panel == Panel::Library => {
+                        if library_selected > 0 {
+                            library_selected -= 1;
+                        }
+                    }
+                    KeyCode::Down if focused_panel == Panel::Library => {
+                        if library_selected + 1 < library_tracks.len() {
+                            library_selected += 1;
+                        }
+                    }
+                    KeyCode::Enter if focused_panel == Panel::Library => {
+                        if let Some(track) = library_tracks.get(library_selected) {
+                            player.load_file(&track.path);
+                            album_art = make_album_art(&picker, &player.cover_art);
+                            last_track_index = player.current_index;
+                            focused_panel = Panel::NowPlaying;
+                        }
+                    }
                     KeyCode::Tab => focused_panel = focused_panel.next(),
                     KeyCode::BackTab => focused_panel = focused_panel.prev(),
                     _ => {}

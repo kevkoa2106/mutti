@@ -149,6 +149,29 @@ impl AudioPlayer {
             .unwrap()
     }
 
+    pub fn empty() -> Self {
+        let sink = DeviceSinkBuilder::open_default_sink().unwrap();
+        let player = Player::connect_new(sink.mixer());
+
+        Self {
+            player,
+            _sink: sink,
+            file_data: Vec::new(),
+            started_at: Instant::now(),
+            paused_elapsed: Duration::ZERO,
+            is_paused: true,
+            volume: 100,
+            total_duration: Duration::ZERO,
+            title: String::new(),
+            artist: String::new(),
+            album: String::new(),
+            cover_art: None,
+            playlist: Vec::new(),
+            current_index: 0,
+            sample_buffer: Arc::new(Mutex::new(SampleBuffer::default())),
+        }
+    }
+
     pub fn new(path: &str) -> Self {
         let sink = DeviceSinkBuilder::open_default_sink().unwrap();
         let player = Player::connect_new(sink.mixer());
@@ -188,6 +211,15 @@ impl AudioPlayer {
             current_index: 0,
             sample_buffer,
         }
+    }
+
+    /// Load a single file by path (e.g. from the library).
+    pub fn load_file(&mut self, path: &str) {
+        let p = PathBuf::from(path);
+        self.playlist = vec![p];
+        self.load_track(0);
+        self.is_paused = false;
+        self.player.play();
     }
 
     fn load_track(&mut self, index: usize) {

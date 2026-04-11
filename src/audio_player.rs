@@ -132,8 +132,7 @@ fn read_tags(path: &Path) -> (String, String, String, Option<Vec<u8>>) {
         .and_then(|t| t.album().map(|s| s.to_string()))
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| "Unknown".to_string());
-    let cover_art = tag
-        .and_then(|t| t.pictures().first().map(|p| p.data().to_vec()));
+    let cover_art = tag.and_then(|t| t.pictures().first().map(|p| p.data().to_vec()));
 
     (title, artist, album, cover_art)
 }
@@ -150,7 +149,8 @@ impl AudioPlayer {
     }
 
     pub fn empty() -> Self {
-        let sink = DeviceSinkBuilder::open_default_sink().unwrap();
+        let mut sink = DeviceSinkBuilder::open_default_sink().unwrap();
+        sink.log_on_drop(false);
         let player = Player::connect_new(sink.mixer());
 
         Self {
@@ -173,7 +173,8 @@ impl AudioPlayer {
     }
 
     pub fn new(path: &str) -> Self {
-        let sink = DeviceSinkBuilder::open_default_sink().unwrap();
+        let mut sink = DeviceSinkBuilder::open_default_sink().unwrap();
+        sink.log_on_drop(false);
         let player = Player::connect_new(sink.mixer());
 
         let p = Path::new(path);

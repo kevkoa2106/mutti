@@ -6,7 +6,10 @@ A terminal music player built with Rust.
 
 - Audio playback with play/pause, seek, and volume control
 - TUI interface built with [ratatui](https://github.com/ratatui/ratatui)
-- Reads metadata (title, artist, album) via [lofty](https://github.com/Serial-ATA/lofty-rs)
+- Library management with SQLite-backed persistent track storage
+- Reads metadata (title, artist, album, cover art) via [lofty](https://github.com/Serial-ATA/lofty-rs)
+- Album art display in the terminal
+- Optional FFT-based audio visualizer (`--visualize`)
 - Supports formats provided by [Symphonia](https://github.com/pdeljanov/Symphonia) (MP3, FLAC, WAV, AAC, OGG, etc.)
 
 ## Keybindings
@@ -20,6 +23,8 @@ A terminal music player built with Rust.
 | `-` | Volume down |
 | `>` / `.` | Next song |
 | `<` / `,` | Previous song |
+| `Up` / `Down` | Navigate library |
+| `Enter` | Play selected track |
 | `Tab` | Next panel |
 | `Shift+Tab` | Previous panel |
 | `q` | Quit |
@@ -51,18 +56,19 @@ brew install mutti
 |-----|--------|
 | ratatui | Display terminal UI |
 | ratatui-image | Display images in ratatui |
+| crossterm | Terminal event handling |
 | clap | Parse command-line arguments |
 | lofty | Get music files' metadata |
 | image | Decode images |
-| rusqlite | Read/write sqlite3 |
+| rusqlite | Read/write SQLite |
 | walkdir | Recursively get all files in directory |
-| rodio | Play/Decode music file |
-| rustfft | FFT algortithm for rust |
+| rodio | Play/decode music file |
+| rustfft | FFT algorithm for audio visualizer |
 
 ## Usage
 
 ```sh
-cargo run -- <file>
+mutti [file_or_directory] [--visualize]
 ```
 
 ## License

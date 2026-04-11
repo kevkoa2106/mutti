@@ -12,7 +12,7 @@ use ratatui_image::protocol::StatefulProtocol;
 use rusqlite::Connection;
 
 fn main() {
-    let conn = Connection::open("mutti.db").expect("Can't create or open database");
+    let conn = Connection::open("/tmp/mutti.db").expect("Can't create or open database");
     db::init(&conn);
 
     let args = Args::parse();
